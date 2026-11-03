@@ -572,7 +572,26 @@ function v2to3(o){
  o.layout={goals:[],lower:[],dash:(o.layout&&o.layout.dash)||[]};
  o.dayTypes=o.dayTypes||d.dayTypes;o.v=3;return o;
 }
-function migrate(o){if(!o.v)o=v1to2(o);if(o.v===2)o=v2to3(o);return Object.assign(DEF(),o)}
+// dados vindos de fora (Excel importado ou localStorage) só entram com IDs, números e foto validados: evita injeção de HTML/CSS
+const okId=v=>/^[A-Za-z0-9_-]{1,40}$/.test(String(v));
+const okDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v));
+function sanitize(s){
+ const fix=(o,k='id',pre='')=>{if(!okId(o[k]))o[k]=pre+uid()},num=(o,...ks)=>ks.forEach(k=>{if(k in o)o[k]=+o[k]||0});
+ s.brand=s.brand==='rico'?'rico':'xp';s.theme=s.theme==='light'?'light':'dark';
+ if(!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(s.photo||''))s.photo='';
+ s.dayTypes.forEach(t=>{fix(t,'id','t');t.days=(t.days||[]).map(Number).filter(w=>w>=0&&w<=6)});
+ const tids=s.dayTypes.map(t=>t.id);
+ s.blocks.forEach(b=>{fix(b,'id','b');b.types=(b.types||[]).filter(x=>tids.includes(x));if(!b.types.length)b.types=[tids[0]];b.items.forEach(i=>fix(i));if(!ICONS[b.icon])b.icon='note';if(!['check','hier','pausa'].includes(b.kind))b.kind='check';b.start=/^\d{2}:\d{2}$/.test(b.start)?b.start:'08:00';b.end=/^\d{2}:\d{2}$/.test(b.end)?b.end:addH(b.start)});
+ s.goals.forEach(g=>{fix(g);num(g,'peso','meta','obj','real');if(g.auto&&!['cesta','cross','nps','ic'].includes(g.auto))delete g.auto});
+ s.cats.forEach(c=>{fix(c);num(c,'meta','obj')});s.crossItems.forEach(x=>{fix(x);num(x,'meta','obj','real')});
+ s.icCfg.forEach(g=>{if(!ICONS[g.i])g.i='chart';g.m.forEach(m=>{const old=m.k;fix(m,'k');if(old!==m.k&&s.ic[old]!=null)s.ic[m.k]=s.ic[old];num(m,'meta','obj')})});
+ Object.keys(s.ic).forEach(k=>okId(k)?s.ic[k]=+s.ic[k]||0:delete s.ic[k]);
+ num(s.nps,'p','n','d');s.alloc.forEach(a=>{num(a,'valor');if(!okDate(a.data))a.data='';a.status=a.status==='Não'?'Não':'Sim'});
+ Object.keys(s.log).forEach(d=>{const r=s.log[d];if(!okDate(d)||!r){delete s.log[d];return}if(!tids.includes(r.type))r.type=tids[0];r.done=Object.fromEntries(Object.keys(r.done||{}).filter(okId).map(k=>[k,1]));if(r.legacy!=null)r.legacy=+r.legacy||0});
+ Object.keys(s.layout).forEach(k=>s.layout[k]=(s.layout[k]||[]).filter(x=>/^[A-Za-z0-9_:-]{1,44}$/.test(x)));
+ return s;
+}
+function migrate(o){if(!o.v)o=v1to2(o);if(o.v===2)o=v2to3(o);return sanitize(Object.assign(DEF(),o))}
 let S;
 try{const raw=JSON.parse(localStorage.getItem(KEY)||'null');S=raw?migrate(raw):DEF()}catch(e){S=DEF()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){alert('Não foi possível salvar no navegador: '+e.message)}};
@@ -681,7 +700,7 @@ function renderProfile(){
  $('brandLogo').innerHTML=LOGOS[S.brand];
  $('themeBtn').innerHTML=svg(S.theme==='dark'?'sun':'moon');
  const ini=S.name.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
- $$('[data-photo]').forEach(el=>{el.style.backgroundImage=S.photo?`url(${S.photo})`:'';el.textContent=S.photo?'':ini});
+ $$('[data-photo]').forEach(el=>{el.style.backgroundImage=S.photo?`url("${S.photo}")`:'';el.textContent=S.photo?'':ini});
  $$('[data-first]').forEach(el=>el.textContent=S.name.split(/\s+/)[0]);
  $$('[data-prof]').forEach(el=>{if(document.activeElement!==el)el.value=S[el.dataset.prof]});
  $$('[data-theme-pick]').forEach(b=>b.classList.toggle('on',b.dataset.themePick===S.theme));
@@ -1098,7 +1117,7 @@ function fromSheets(wb){
  const np=O('NPS')[0];if(np)s.nps={p:+np['Promotores']||0,n:+np['Neutros']||0,d:+np['Detratores']||0};
  if(wb['Índice Comercial']){const grp=[];s.ic={};O('Índice Comercial').forEach(r=>{let g=grp.find(x=>x.g===String(r['Grupo']));if(!g)grp.push(g={g:String(r['Grupo']||'Grupo'),i:ICONS[r['Ícone do grupo']]?String(r['Ícone do grupo']):'chart',m:[]});const k=String(r['Chave']||uid());g.m.push({k,l:String(r['Micro meta']||'Micro meta'),meta:+r['Meta']||0,obj:+r['Objetivo']||0,s:String(r['Sugestão']||'')});s.ic[k]=+r['Realizado']||0});if(grp.length)s.icCfg=grp}
  O('Layout').forEach(r=>{const k=String(r['Área']);if(k in s.layout)s.layout[k]=dd(r['Ordem (IDs)'])});
- return s;
+ return sanitize(s);
 }
 const dlXlsx=name=>{const a=document.createElement('a');a.href=URL.createObjectURL(xlsx(toSheets()));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
 async function importFile(f){
