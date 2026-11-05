@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Private Desk</title>
+<link rel="icon" id="fav" type="image/svg+xml" href="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500;600&family=Geist+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -538,7 +539,7 @@ const DEF=()=>({v:3,name:'Assessor',role:'Assessor de Investimentos',office:'XP 
   mkBlk('tarde','14:00','17:00','Atuação: BV e FUPs (Tarde)',['A','B'],'hier',['NPS','Pós-Carteira','Potencial','Continuar e Apresentar','Preencher','Boas-Vindas (BV)','Ativação de Conta'],['NPS','Pós-Carteira','Potencial','Continuar e Apresentar','Preencher','Boas-Vindas (BV)','Ativação de Conta'],'Pré-requisito: matar os Críticos da manhã.','Prioridade'),
   mkBlk('fim','17:00','18:00','Operacional do Fim do Dia e Dia Seguinte',['A','B'],'check',['Montagem de carteira','Envio de malas: BV','Envio de malas: 300k+','Envio de malas: Ativação','Atualização gerencial','Checagem de score/metas'],[])],
  goals:[
-  {id:'cl',name:'Captação Líquida',peso:30,meta:4000000,obj:5000000,real:0},
+  {id:'cl',name:'Captação Líquida',peso:30,meta:4000000,obj:5000000,real:0,daily:true,days:[]},
   {id:'ce',name:'Captação Espelhada',peso:20,meta:2000000,obj:2500000,real:0},
   {id:'ci',name:'Cesta de Investimentos',peso:10,meta:550000,obj:860000,auto:'cesta'},
   {id:'cx',name:'Cesta Cross-sell',peso:20,meta:10,obj:17,auto:'cross'},
@@ -582,7 +583,7 @@ function sanitize(s){
  s.dayTypes.forEach(t=>{fix(t,'id','t');t.days=(t.days||[]).map(Number).filter(w=>w>=0&&w<=6)});
  const tids=s.dayTypes.map(t=>t.id);
  s.blocks.forEach(b=>{fix(b,'id','b');b.types=(b.types||[]).filter(x=>tids.includes(x));if(!b.types.length)b.types=[tids[0]];b.items.forEach(i=>fix(i));if(!ICONS[b.icon])b.icon='note';if(!['check','hier','pausa'].includes(b.kind))b.kind='check';b.start=/^\d{2}:\d{2}$/.test(b.start)?b.start:'08:00';b.end=/^\d{2}:\d{2}$/.test(b.end)?b.end:addH(b.start)});
- s.goals.forEach(g=>{fix(g);num(g,'peso','meta','obj','real');if(g.auto&&!['cesta','cross','nps','ic'].includes(g.auto))delete g.auto});
+ s.goals.forEach(g=>{fix(g);num(g,'peso','meta','obj','real');if(g.id==='cl')g.daily=true;if(g.daily){g.days=(g.days||[]).map(x=>({data:okDate(x.data)?x.data:'',ent:+x.ent||0,sai:+x.sai||0}))}if(g.auto&&!['cesta','cross','nps','ic'].includes(g.auto))delete g.auto});
  s.cats.forEach(c=>{fix(c);num(c,'meta','obj')});s.crossItems.forEach(x=>{fix(x);num(x,'meta','obj','real')});
  s.icCfg.forEach(g=>{if(!ICONS[g.i])g.i='chart';g.m.forEach(m=>{const old=m.k;fix(m,'k');if(old!==m.k&&s.ic[old]!=null)s.ic[m.k]=s.ic[old];num(m,'meta','obj')})});
  Object.keys(s.ic).forEach(k=>okId(k)?s.ic[k]=+s.ic[k]||0:delete s.ic[k]);
@@ -643,8 +644,10 @@ function goalReal(g){
  if(g.auto==='cross')return crossTot();
  if(g.auto==='nps')return npsCalc(S.nps);
  if(g.auto==='ic')return icCalc();
+ if(g.daily&&g.days&&g.days.length)return dayNet(g);
  return +g.real||0;
 }
+const dayNet=g=>g.days.reduce((a,x)=>a+(+x.ent||0)-(+x.sai||0),0);
 const ratio=(g,w='meta')=>Math.max(0,Math.min(goalReal(g)/(+g[w]||1),CAP));
 const tickPos=g=>+g.obj>0?Math.min(g.meta/g.obj,1):1;
 const pesoTot=()=>S.goals.reduce((a,g)=>a+(+g.peso||0),0);
@@ -698,6 +701,7 @@ const ordered=(name,ids)=>{const saved=(S.layout[name]||[]).filter(i=>ids.includ
 function renderProfile(){
  const r=document.documentElement;r.dataset.theme=S.theme;r.dataset.brand=S.brand;
  $('brandLogo').innerHTML=LOGOS[S.brand];
+ $('fav').href=favicon(S.brand==='rico'?'#FF5A00':'#FFB800');
  $('themeBtn').innerHTML=svg(S.theme==='dark'?'sun':'moon');
  const ini=S.name.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
  $$('[data-photo]').forEach(el=>{el.style.backgroundImage=S.photo?`url("${S.photo}")`:'';el.textContent=S.photo?'':ini});
@@ -707,6 +711,8 @@ function renderProfile(){
  $$('[data-brand-pick]').forEach(b=>b.classList.toggle('on',b.dataset.brandPick===S.brand));
 }
 
+// ícone da aba: monograma P com anel de progresso na cor da marca
+const favicon=c=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#0B0B0B"/><circle cx="32" cy="32" r="21" fill="none" stroke="${c}" stroke-opacity=".22" stroke-width="5"/><path d="M32 11a21 21 0 1 1-18.2 31.5" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round"/><text x="32" y="41" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="25" fill="#fff">P</text></svg>`);
 // ---- rotina ----
 let openId=null,editing=false,calM=new Date();
 function current(r){
@@ -800,6 +806,16 @@ const icHTML=gi=>{const g=S.icCfg[gi];return `<div class="h"><span class="md">${
  <div class="gtbl" style="margin-top:8px"><div class="row ic cap"><span>Micro meta</span><span>Meta</span><span>Objetivo</span><span></span></div>
  ${g.m.map((m,mi)=>`<div class="row ic"><input data-icm="${gi}.${mi}" data-f="l" value="${esc(m.l)}"><input type="number" data-icm="${gi}.${mi}" data-f="meta" value="${m.meta}"><input type="number" data-icm="${gi}.${mi}" data-f="obj" value="${m.obj}"><button class="icon-btn sm" data-icdel="${gi}.${mi}" title="Remover">${svg('trash')}</button></div>`).join('')}</div>
  <button class="btn" data-icadd="${gi}" style="margin-top:12px">${svg('plus')}Micro meta</button>`};
+// lançamento diário (Captação Líquida): entrada - saída por dia; o realizado é a soma
+const dailyTot=g=>{const e=g.days.reduce((a,x)=>a+(+x.ent||0),0),o=g.days.reduce((a,x)=>a+(+x.sai||0),0);return `<span>Entradas <b>${brl(e)}</b></span><span>Saídas <b>${brl(o)}</b></span><span>Captação líquida <b style="color:${e-o>=0?'var(--ok)':'var(--bad)'}">${brl(e-o)}</b></span>`};
+function dailyHTML(g){
+ g.days.sort((a,b)=>(a.data||'9').localeCompare(b.data||'9'));
+ return `<div class="msec"><div class="h" style="justify-content:space-between;flex-wrap:wrap"><span class="cap">Lançamento por dia</span><button class="btn p" data-cdadd>${svg('plus')}Adicionar dia</button></div>
+ <div class="mut" style="margin-top:6px">Lance a entrada e a saída de cada dia. A captação do dia e o realizado da meta são calculados sozinhos.</div>
+ <div class="tbl"><table><thead><tr><th class="cap" style="width:150px">Data</th><th class="cap">Entrada R$</th><th class="cap">Saída R$</th><th class="cap" style="text-align:right">Captação do dia</th><th style="width:34px"></th></tr></thead><tbody>
+ ${g.days.map((x,i)=>`<tr><td><input type="date" data-cd="${i}" data-f="data" value="${esc(x.data)}"></td><td><input type="number" min="0" data-cd="${i}" data-f="ent" value="${+x.ent||0}"></td><td><input type="number" min="0" data-cd="${i}" data-f="sai" value="${+x.sai||0}"></td><td class="mono" style="text-align:right;white-space:nowrap" id="cdl-${i}">${brl(x.ent-x.sai)}</td><td><button class="icon-btn sm" data-cddel="${i}" title="Remover dia">${svg('x')}</button></td></tr>`).join('')||'<tr><td colspan="5" class="mut" style="padding:16px 6px">Nenhum dia lançado. Clique em "Adicionar dia".</td></tr>'}
+ </tbody></table></div><div class="mo" id="cdTot" style="margin-top:12px;font-size:13px">${dailyTot(g)}</div></div>`;
+}
 function renderConfig(){
  $('cfgGoals').innerHTML=S.goals.map((g,k)=>goalRowHTML(k)).join('');
  $$('.pesoSum').forEach(el=>el.innerHTML=pesoHTML());
@@ -813,7 +829,8 @@ function renderEdit(){
  if(kind==='goal'){const k=S.goals.findIndex(g=>g.id===id),g=S.goals[k];if(k<0){closeOv();return}
   h=`<div class="mhead"><span class="md lg">${svg('target')}</span><span class="mtitle">${esc(g.name)}</span>${close}</div>
   <div class="gtbl msec"><div class="row cap"><span>Nome</span><span>Peso %</span><span>Meta</span><span>Objetivo</span></div>${goalRowHTML(k)}</div><div class="pesoSum mut" style="margin-top:10px">${pesoHTML()}</div>
-  ${!g.auto?`<div class="msec"><label class="lb"><span class="cap">Realizado</span><input class="f" type="number" data-g="${g.id}" value="${g.real}"></label></div>`:''}
+  ${!g.auto&&!(g.daily&&g.days.length)?`<div class="msec"><label class="lb"><span class="cap">Realizado</span><input class="f" type="number" data-g="${g.id}" value="${g.real}"></label></div>`:''}
+  ${g.daily?dailyHTML(g):''}
   ${g.auto==='cesta'?`<div class="msec">${catsHTML()}</div>`:''}
   ${g.auto==='cross'?`<div class="msec">${crossHTML()}</div>`:''}
   ${g.auto==='nps'?`<div class="msec"><span class="cap">Notas recebidas</span><div class="fields" style="grid-template-columns:repeat(3,1fr);margin-top:10px">${[['p','Promotores'],['n','Neutros'],['d','Detratores']].map(([k2,l])=>`<label class="lb"><span class="mut">${l}</span><input class="f" type="number" min="0" data-nps="${k2}" value="${S.nps[k2]}"></label>`).join('')}</div><div class="mut" style="margin-top:10px">(Promotores − Detratores) ÷ total = <b style="color:var(--txt);font-weight:500" id="npsLive">${npsCalc(S.nps)}</b></div></div>`:''}
@@ -837,6 +854,7 @@ function goalCard(g){
  if(g.auto==='cesta'){const m=meo();body=`<div class="mut" style="margin-top:8px">Alocado: ${brl(real)}</div><div class="sub">${S.cats.map(c=>`<div class="subr"><span>${esc(c.name)}</span><span class="mono mut">${brl(m.by[c.id])} / ${brl(c.meta)}</span><div class="bar"><i style="width:${c.meta?Math.min(m.by[c.id]/c.meta,1)*100:0}%"></i></div></div>`).join('')}</div>`}
  else if(g.auto==='cross')body=`<div class="sub">${S.crossItems.map(x=>`<div class="subr"><span>${esc(x.name)} <span class="mut">· meta ${x.meta}</span></span><input type="number" min="0" data-xi="${x.id}" value="${+x.real||0}"><div class="bar"><i style="width:${x.meta?Math.min((+x.real||0)/x.meta,1)*100:0}%"></i></div></div>`).join('')}</div>`;
  else if(g.auto)body=`<div class="real"><span class="tag b">automático · ${g.auto==='nps'?'NPS '+real:'média dos micro indicadores '+real+'%'}</span></div>`;
+ else if(g.daily&&g.days.length)body=`<div class="real"><span class="tag b">soma de ${g.days.length} dias lançados</span></div><div class="mut" style="margin-top:8px">Realizado: ${fmtG(g,real)} · clique para lançar o dia</div>`;
  else body=`<div class="real"><input type="number" data-g="${g.id}" value="${g.real}" placeholder="Realizado"></div><div class="mut" style="margin-top:8px">Realizado: ${fmtG(g,real)}</div>`;
  return `<div class="card goal click" data-goal="${g.id}"><span class="edit-hint">${svg('pencil')}</span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-right:22px"><span class="h" style="min-width:0">${esc(g.name)}</span><span class="tag">${g.peso}%</span></div>
   <div style="display:flex;align-items:baseline;gap:8px"><div class="num" data-num="g-${g.id}">0%</div><span class="mut">da meta</span></div>
@@ -981,6 +999,8 @@ document.addEventListener('click',e=>{
  else if(d.icdel){const [gi,mi]=d.icdel.split('.').map(Number);S.icCfg[gi].m.splice(mi,1);afterCfg()}
  else if('catadd' in d){S.cats.push({id:uid(),name:'Nova categoria',prods:[],meta:0,obj:0});afterCfg()}
  else if(d.catdel){if(confirm('Remover esta categoria? As alocações dela continuam no total, mas sem categoria.')){S.cats=S.cats.filter(c=>c.id!==d.catdel);afterCfg()}}
+ else if('cdadd' in d){const g=S.goals.find(x=>x.daily);const last=g.days.map(x=>x.data).filter(Boolean).sort().pop();const nx=last?new Date(last+'T12:00'):null;if(nx){do nx.setDate(nx.getDate()+1);while(nx.getDay()===0||nx.getDay()===6)}g.days.push({data:nx?iso(nx):todayISO(),ent:0,sai:0});afterCfg()}
+ else if(d.cddel!=null){S.goals.find(x=>x.daily).days.splice(+d.cddel,1);afterCfg()}
  else if('xadd' in d){S.crossItems.push({id:uid(),name:'Novo item',meta:1,obj:1,real:0});afterCfg()}
  else if(d.xdel){S.crossItems=S.crossItems.filter(x=>x.id!==d.xdel);afterCfg()}
 });
@@ -1014,11 +1034,13 @@ function onCfgInput(e){const d=e.target.dataset,v=e.target.value;
  else if(d.xc){const x=S.crossItems.find(y=>y.id===d.xc);x[d.f]=d.f==='name'?v:+v}
  else if(d.icg!=null)S.icCfg[+d.icg].g=v;
  else if(d.icm){const [gi,mi]=d.icm.split('.').map(Number);S.icCfg[gi].m[mi][d.f]=d.f==='l'?v:+v}
+ else if(d.cd!=null){const g=S.goals.find(x=>x.daily),x=g.days[+d.cd];x[d.f]=d.f==='data'?v:+v||0;const el=$('cdl-'+d.cd);if(el)el.textContent=brl(x.ent-x.sai);const t=$('cdTot');if(t)t.innerHTML=dailyTot(g)}
  else if(d.nps){S.nps[d.nps]=Math.max(0,+v||0);const el=$('npsLive');if(el)el.textContent=npsCalc(S.nps)}
  else return;
  afterData();$$('.pesoSum').forEach(el=>el.innerHTML=pesoHTML())}
 $('tab-config').addEventListener('input',onCfgInput);
 $('eBody').addEventListener('input',onCfgInput);
+$('eBody').addEventListener('change',e=>{if(e.target.dataset.cd!=null&&e.target.dataset.f==='data')renderEdit()});
 // foto: recorta em quadrado de 320px para caber no localStorage
 $('photoBtn').onclick=()=>$('photoIn').click();
 $('photoIn').onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),s=Math.min(img.width,img.height);c.width=c.height=320;c.getContext('2d').drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,320,320);S.photo=c.toDataURL('image/jpeg',.85);URL.revokeObjectURL(img.src);save();renderProfile()};img.onerror=()=>alert('Não consegui ler essa imagem.');img.src=URL.createObjectURL(f);e.target.value=''};
@@ -1088,6 +1110,7 @@ function toSheets(){
   ['Itens checklist',[['Bloco ID','Item ID','Texto'],...S.blocks.flatMap(b=>b.items.map(it=>[b.id,it.id,it.t]))]],
   ['Hierarquia',[['Bloco ID','Ordem','Texto'],...S.blocks.flatMap(b=>b.hier.map((h,i)=>[b.id,i+1,h]))]],
   ['Histórico',[['Data','Tipo de agenda','Itens concluídos (IDs)','Anotações','% legado'],...Object.keys(S.log).sort().map(d=>{const r=S.log[d];return [d,r.type,L(Object.keys(r.done||{})),r.notes||'',r.legacy??'']})]],
+  ['Captação diária',[['Meta ID','Data','Entrada R$','Saída R$','Captação do dia R$'],...S.goals.filter(g=>g.daily).flatMap(g=>g.days.map(x=>[g.id,x.data,+x.ent||0,+x.sai||0,(+x.ent||0)-(+x.sai||0)]))]],
   ['Metas',[['ID','Nome','Peso %','Meta','Objetivo','Realizado','Cálculo'],...S.goals.map(g=>[g.id,g.name,+g.peso||0,+g.meta||0,+g.obj||0,g.auto?'':+g.real||0,g.auto||'manual'])]],
   ['Cesta categorias',[['ID','Categoria','Meta R$','Objetivo R$','Produtos'],...S.cats.map(c=>[c.id,c.name,+c.meta||0,+c.obj||0,L(c.prods)])]],
   ['Cross-sell',[['ID','Item','Meta','Objetivo','Realizado'],...S.crossItems.map(x=>[x.id,x.name,+x.meta||0,+x.obj||0,+x.real||0])]],
@@ -1111,6 +1134,7 @@ function fromSheets(wb){
  s.log={};O('Histórico').forEach(r=>{const k=xd(r['Data']);if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return;const done={};dd(r['Itens concluídos (IDs)']).forEach(x=>done[x]=1);s.log[k]={type:String(r['Tipo de agenda']||tids[0]),done,notes:String(r['Anotações']||'')};if(r['% legado']!==''&&r['% legado']!=null)s.log[k].legacy=+r['% legado']});
  const gs=O('Metas').map(r=>{const auto=['cesta','cross','nps','ic'].includes(r['Cálculo'])?r['Cálculo']:null,g={id:String(r['ID']||uid()),name:String(r['Nome']||'Meta'),peso:+r['Peso %']||0,meta:+r['Meta']||0,obj:+r['Objetivo']||0};if(auto)g.auto=auto;else g.real=+r['Realizado']||0;return g});
  if(gs.length)s.goals=gs;
+ O('Captação diária').forEach(r=>{const g=s.goals.find(x=>x.id===String(r['Meta ID']))||s.goals.find(x=>x.id==='cl');if(!g)return;g.daily=true;(g.days=g.days||[]).push({data:xd(r['Data']),ent:+r['Entrada R$']||0,sai:+r['Saída R$']||0})});
  if(wb['Cesta categorias'])s.cats=O('Cesta categorias').map(r=>({id:String(r['ID']||uid()),name:String(r['Categoria']||'Categoria'),meta:+r['Meta R$']||0,obj:+r['Objetivo R$']||0,prods:dd(r['Produtos'])}));
  if(wb['Cross-sell'])s.crossItems=O('Cross-sell').map(r=>({id:String(r['ID']||uid()),name:String(r['Item']||'Item'),meta:+r['Meta']||0,obj:+r['Objetivo']||0,real:+r['Realizado']||0}));
  s.alloc=O('Alocações').map(r=>({data:xd(r['Data']),cod:String(r['Código cliente']??''),prod:String(r['Produto']||''),status:r['Status']==='Não'?'Não':'Sim',valor:+r['Valor R$']||0}));
