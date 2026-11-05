@@ -16,3 +16,11 @@ Os dados ficam salvos no próprio navegador (`localStorage`). Para levar para ou
 - **Pontos de melhoria** (lâmpada): prioridades e o que falta em cada área.
 - **Configurações**: foto e perfil, marca XP ou Rico, tema Black ou White, metas e micro metas.
 - **Backup em Excel (.xlsx)** com todos os dados, gerado e lido sem bibliotecas externas.
+
+## Painel do líder (equipe)
+
+1. Cada assessor exporta o backup em Excel (sai como `private-desk-<nome>.xlsx`) e salva numa pasta compartilhada do SharePoint/OneDrive, sempre por cima do mesmo arquivo.
+2. O líder liga **Configurações → Painel do líder** e, na aba nova, carrega todos os arquivos da pasta de uma vez.
+3. **Exportar consolidado (Power BI)** gera `private-desk-equipe.xlsx` com abas planas por assessor. No Power BI: Obter dados → SharePoint Online → esse arquivo.
+
+O controle de acesso fica na pasta do SharePoint: só o líder deve ter leitura de todos os arquivos.

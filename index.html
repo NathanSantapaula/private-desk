@@ -278,6 +278,25 @@ td input:focus,td select:focus{box-shadow:inset 0 0 0 1.5px var(--accent);backgr
 .arow{display:grid;grid-template-columns:70px 70px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--hair);font-size:12.5px}
 .arow:last-child{border:0}
 
+/* painel do líder */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:20px}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
+.kpis .card b{display:block;font-weight:200;font-size:34px;letter-spacing:-.04em;margin-top:6px;font-variant-numeric:tabular-nums}
+.rank{width:100%;border-collapse:collapse;font-size:12.5px}
+.rank th{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);font-weight:500;padding:10px 8px;border-bottom:1px solid var(--hair);white-space:nowrap;text-align:right}
+.rank th:first-child,.rank td:first-child{text-align:left}
+.rank td{padding:10px 8px;border-bottom:1px solid var(--hair);text-align:right;font-family:var(--mono);white-space:nowrap}
+.rank tr.click{cursor:pointer;transition:background .4s var(--ease)}
+.rank tr.click:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.who{display:flex;align-items:center;gap:10px;font-family:var(--sans)}
+.who .ph{width:30px;height:30px;font-size:11px;flex:none}
+.pc{display:inline-block;min-width:44px;padding:2px 8px;border-radius:99px;font-size:11px}
+.pc.ok{color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ok) 40%,transparent)}
+.pc.mid{color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+.pc.bad{color:var(--bad);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bad) 40%,transparent)}
+.cmp{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;margin-top:18px}
+
 /* configurações */
 .photo-up{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:18px}
 .photo-up .ava{width:116px;height:116px;--p:100}
@@ -316,6 +335,7 @@ section.on .an{animation:rise .9s var(--ease) both;animation-delay:calc(var(--i,
       <button data-tab="rotina" class="on">Rotina diária</button>
       <button data-tab="metas">Metas & Ponderações</button>
       <button data-tab="dash" class="xtab">Visão dashboard</button>
+      <button data-tab="leader" id="leaderTab" class="hide">Painel do líder</button>
       <button data-tab="config" class="xtab">Configurações</button>
     </nav>
     <div class="seg" id="daySeg"></div>
@@ -406,6 +426,9 @@ section.on .an{animation:rise .9s var(--ease) both;animation-delay:calc(var(--i,
     <div class="wgrid an" id="dashGrid"></div>
   </section>
 
+  <!-- ===== PAINEL DO LÍDER ===== -->
+  <section id="tab-leader"><div id="leaderBody"></div></section>
+
   <!-- ===== CONFIGURAÇÕES ===== -->
   <section id="tab-config">
     <div class="grid2" style="margin-top:26px">
@@ -443,6 +466,8 @@ section.on .an{animation:rise .9s var(--ease) both;animation-delay:calc(var(--i,
           <button class="btn" id="btnImp"><svg class="ico" viewBox="0 0 24 24" data-i="up"></svg>Importar backup (Excel)</button>
           <button class="btn danger" id="btnReset">Restaurar padrão</button>
         </div>
+        <div class="h" style="margin-top:22px"><span class="md"><svg class="ico" viewBox="0 0 24 24" data-i="users"></svg></span>Painel do líder</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap"><button class="chip" id="leaderChip" data-leadertoggle></button><span class="mut">Mostra a aba "Painel do líder" neste navegador. Quem controla o acesso aos números da equipe é a pasta do SharePoint.</span></div>
         <div class="mut" style="margin-top:10px">O Excel leva tudo: perfil e foto, marca, tema, tipos de agenda, blocos, checklists, histórico, metas, cesta, cross-sell, alocações, NPS, Índice Comercial e a ordem dos widgets.</div>
         <div style="display:none">
         </div>
@@ -559,7 +584,7 @@ const DEF=()=>({v:3,name:'Assessor',role:'Assessor de Investimentos',office:'XP 
   {id:'nps',name:'NPS',peso:10,meta:75,obj:85,auto:'nps'},
   {id:'ic',name:'Índice Comercial',peso:10,meta:100,obj:100,auto:'ic'}],
  cats:catsDef(),crossItems:crossDef(),
- alloc:[],nps:{p:0,n:0,d:0},ic:{},icCfg:icDef(),layout:{goals:[],lower:[],dash:[]}});
+ alloc:[],nps:{p:0,n:0,d:0},ic:{},icCfg:icDef(),layout:{goals:[],lower:[],dash:[]},leader:false,team:[]});
 
 // migrações: v1 (primeira versão) -> v2 -> v3
 function v1to2(o){
@@ -604,6 +629,7 @@ function sanitize(s){
  s.meetGoal=Math.max(0,+s.meetGoal||0);
  Object.keys(s.log).forEach(d=>{const r=s.log[d];if(!okDate(d)||!r){delete s.log[d];return}if(r.meetings!=null)r.meetings=Math.max(0,Math.round(+r.meetings||0));if(!tids.includes(r.type))r.type=tids[0];r.done=Object.fromEntries(Object.keys(r.done||{}).filter(okId).map(k=>[k,1]));if(r.legacy!=null)r.legacy=+r.legacy||0});
  Object.keys(s.layout).forEach(k=>s.layout[k]=(s.layout[k]||[]).filter(x=>/^[A-Za-z0-9_:-]{1,44}$/.test(x)));
+ s.leader=s.leader===true;s.team=Array.isArray(s.team)?s.team.filter(m=>m&&typeof m==='object'&&m.key).map(m=>Object.assign(m,{photo:/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(m.photo||'')?m.photo:''})):[];
  return s;
 }
 function migrate(o){if(!o.v)o=v1to2(o);if(o.v===2)o=v2to3(o);return sanitize(Object.assign(DEF(),o))}
@@ -715,6 +741,7 @@ const ordered=(name,ids)=>{const saved=(S.layout[name]||[]).filter(i=>ids.includ
 function renderProfile(){
  const r=document.documentElement;r.dataset.theme=S.theme;r.dataset.brand=S.brand;
  $('brandLogo').innerHTML=LOGOS[S.brand];
+ $('leaderTab').classList.toggle('hide',!S.leader);$('leaderChip').textContent=S.leader?'Painel do líder: ligado':'Painel do líder: desligado';$('leaderChip').classList.toggle('on',S.leader);
  $('fav').href=favicon(S.brand==='rico'?'#FF5A00':'#FFB800');
  $('themeBtn').innerHTML=svg(S.theme==='dark'?'sun':'moon');
  const ini=S.name.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -969,6 +996,95 @@ function afterData(){save();renderMetas();renderDash();renderTips()}
 function afterCfg(){afterData();renderConfig();renderEdit()}
 function renderAll(){renderProfile();renderRotina();renderMetas();renderDash();renderTips();renderConfig()}
 
+// ---- painel do líder: consolida os backups Excel de cada assessor ----
+const n0=v=>+v||0;
+// calcula o resumo de um assessor usando as mesmas funções do painel (troca S temporariamente)
+function snapshot(st,file){
+ const keep=S;S=st;
+ try{
+  const m=meo(),mon=(()=>{const x=new Date();x.setDate(x.getDate()-(x.getDay()+6)%7);return iso(x)})(),cl=S.goals.find(g=>g.daily);
+  return {key:S.name.trim().toLowerCase()||uid(),name:S.name,role:S.role,office:S.office,photo:S.photo,file,loaded:new Date().toISOString(),
+   score:score(),scoreO:score('obj'),mereo:mereo(),alloc:m.tot,
+   goals:S.goals.map(g=>({id:g.id,name:g.name,peso:n0(g.peso),meta:n0(g.meta),obj:n0(g.obj),real:goalReal(g),pm:Math.round(ratio(g)*100),po:Math.round(ratio(g,'obj')*100),money:isMoney(g)})),
+   cats:S.cats.map(c=>({name:c.name,meta:n0(c.meta),v:n0(m.by[c.id])})),
+   cross:S.crossItems.map(x=>({name:x.name,meta:n0(x.meta),obj:n0(x.obj),real:n0(x.real)})),
+   nps:{p:n0(S.nps.p),n:n0(S.nps.n),d:n0(S.nps.d)},
+   ic:S.icCfg.map(g=>({g:g.g,p:Math.round(icGroup(g)*100),m:g.m.map(x=>({l:x.l,meta:n0(x.meta),obj:n0(x.obj),v:n0(S.ic[x.k])}))})),
+   rot:weekdays(10).map(d=>({d,p:dayPct(d)})),
+   meetWeek:weekdays(5).filter(d=>d>=mon).reduce((a,d)=>a+n0(rec(d).meetings),0),meet30:weekdays(30).reduce((a,d)=>a+n0(rec(d).meetings),0),meetGoal:n0(S.meetGoal),
+   days:cl?cl.days.map(x=>({data:x.data,ent:n0(x.ent),sai:n0(x.sai)})):[]};
+ }finally{S=keep}
+}
+const pcCls=p=>p>=100?'ok':p>=60?'mid':'bad';
+const teamGoals=T=>{const out=[];T.forEach(m=>m.goals.forEach(g=>{if(!out.some(x=>x.id===g.id))out.push({id:g.id,name:g.name})}));return out};
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+const memberGoal=(m,id)=>m.goals.find(g=>g.id===id);
+function renderLeader(){
+ const T=(S.team||[]).slice().sort((a,b)=>n0(b.score)-n0(a.score)),G=teamGoals(T);
+ const head=`<div class="sechead an"><div><span class="cap">Visão da equipe</span><h2>Painel do líder</h2></div>
+  <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="btn p" data-teamload>${svg('up')}Carregar arquivos da equipe</button><button class="btn" data-teamexp ${T.length?'':'disabled'}>${svg('db')}Exportar consolidado (Power BI)</button></div>
+  <input type="file" id="teamIn" accept=".xlsx" multiple class="hide"></div>`;
+ if(!T.length){$('leaderBody').innerHTML=head+`<div class="card an" style="margin-top:20px;height:auto"><div class="h"><span class="md">${svg('users')}</span>Como montar o painel da equipe</div>
+  <ol class="pri" style="margin-top:16px">
+   <li><span>Cada assessor, no próprio painel, vai em <b style="font-weight:500">Configurações → Exportar backup (Excel)</b>. O arquivo sai com o nome dele (ex.: private-desk-joao-silva.xlsx).</span></li>
+   <li><span>Ele salva esse arquivo numa pasta compartilhada da equipe no SharePoint/OneDrive. Na próxima vez, salva por cima do mesmo arquivo.</span></li>
+   <li><span>Aqui, clique em <b style="font-weight:500">Carregar arquivos da equipe</b> e selecione todos os arquivos da pasta de uma vez. Carregar de novo atualiza quem já está no painel.</span></li>
+   <li><span>Para o Power BI, use <b style="font-weight:500">Exportar consolidado</b> e salve na mesma pasta. No Power BI: Obter dados → SharePoint Online (pasta) → este arquivo. Ele atualiza sozinho quando o arquivo muda.</span></li>
+  </ol><div class="mut" style="margin-top:14px">Segurança: deixe a pasta com permissão de leitura só para o líder. Os assessores só precisam conseguir salvar o próprio arquivo.</div></div>`;applyAnim('tab-leader');return}
+ const tot=T.reduce((a,m)=>({p:a.p+n0(m.nps.p),n:a.n+n0(m.nps.n),d:a.d+n0(m.nps.d)}),{p:0,n:0,d:0});
+ const capT=T.reduce((a,m)=>a+n0((memberGoal(m,'cl')||{}).real),0);
+ const kpis=[['Nota média da equipe',Math.round(avg(T.map(m=>n0(m.score))))+'%'],['MEREO média',nf(avg(T.map(m=>n0(m.mereo))))],['Captação líquida',brl(capT)],['Total alocado',brl(T.reduce((a,m)=>a+n0(m.alloc),0))],['NPS da equipe',String(npsCalc(tot))],['Reuniões na semana',String(T.reduce((a,m)=>a+n0(m.meetWeek),0))]];
+ const rank=`<div class="card an" style="margin-top:20px;height:auto"><div class="h" style="justify-content:space-between"><span>Ranking · ${T.length} assessores</span><span class="mut">clique num nome para ver tudo dele</span></div>
+  <div class="tbl"><table class="rank"><thead><tr><th>Assessor</th><th>Nota</th><th>MEREO</th>${G.map(g=>`<th>${esc(g.name)}</th>`).join('')}<th>Rotina 10d</th><th>Reuniões sem.</th><th>Atualizado</th><th></th></tr></thead><tbody>
+  ${T.map((m,i)=>{const ini=String(m.name).split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();return `<tr class="click" data-member="${esc(m.key)}"><td><div class="who"><span class="mono mut">${i+1}</span><div class="ph" style="${m.photo?`background-image:url(&quot;${m.photo}&quot;)`:''}">${m.photo?'':esc(ini)}</div><div><div>${esc(m.name)}</div><div class="mut" style="font-size:11px">${esc(m.role)}</div></div></div></td>
+   <td><span class="pc ${pcCls(n0(m.score))}">${n0(m.score)}%</span></td><td>${nf(m.mereo)}</td>${G.map(g=>{const x=memberGoal(m,g.id);return `<td>${x?`<span class="pc ${pcCls(n0(x.pm))}">${n0(x.pm)}%</span>`:'—'}</td>`}).join('')}
+   <td>${Math.round(avg((m.rot||[]).map(r=>n0(r.p))))}%</td><td>${n0(m.meetWeek)}</td><td class="mut">${m.loaded?new Date(m.loaded).toLocaleDateString('pt-BR'):'—'}</td><td><button class="icon-btn sm" data-teamdel="${esc(m.key)}" title="Tirar do painel">${svg('x')}</button></td></tr>`}).join('')}
+  </tbody></table></div></div>`;
+ const cmp=`<div class="cmp an">${G.map(g=>`<div class="card"><div class="h" style="justify-content:space-between"><span>${esc(g.name)}</span><span class="mut">barra até o objetivo · traço = meta</span></div><div style="margin-top:8px">
+  ${T.map(m=>{const x=memberGoal(m,g.id);if(!x)return '';const ro=Math.min(n0(x.po)/100,1),tk=x.obj?Math.min(n0(x.meta)/n0(x.obj),1):1;return hbar(esc(m.name),ro,tk,n0(x.pm)+'%',`${m.name}: ${x.money?brl(x.real):nf(x.real)} de ${x.money?brl(x.meta):nf(x.meta)}`)}).join('')}</div></div>`).join('')}</div>`;
+ $('leaderBody').innerHTML=head+`<div class="kpis an">${kpis.map(([l,v])=>`<div class="card"><span class="cap">${l}</span><b>${esc(v)}</b></div>`).join('')}</div>`+rank+cmp;
+ applyAnim('tab-leader');
+}
+function renderMember(key){
+ const m=(S.team||[]).find(x=>x.key===key);if(!m){closeOv();return}
+ const tv=m.days.reduce((a,x)=>a+n0(x.ent)-n0(x.sai),0),np=npsCalc(m.nps);
+ $('eBody').innerHTML=`<div class="mhead"><div class="ava" style="--p:${Math.min(n0(m.score),100)};width:56px;height:56px"><div class="ph" style="${m.photo?`background-image:url(&quot;${m.photo}&quot;)`:''}"></div></div><div style="flex:1;min-width:0"><div class="mtitle">${esc(m.name)}</div><div class="mut">${esc(m.role)} · ${esc(m.office)} · arquivo ${esc(m.file)}</div></div><button class="icon-btn" data-close>${svg('x')}</button></div>
+ <div class="kpis" style="grid-template-columns:repeat(4,1fr)"><div class="card"><span class="cap">Nota</span><b>${n0(m.score)}%</b></div><div class="card"><span class="cap">MEREO</span><b>${nf(m.mereo)}</b></div><div class="card"><span class="cap">Alocado</span><b style="font-size:24px">${brl(m.alloc)}</b></div><div class="card"><span class="cap">NPS</span><b>${np}</b></div></div>
+ <div class="msec"><span class="cap">Metas</span><div class="tbl"><table class="rank"><thead><tr><th>Meta</th><th>Peso</th><th>Meta</th><th>Objetivo</th><th>Realizado</th><th>% meta</th><th>% obj.</th></tr></thead><tbody>
+  ${m.goals.map(g=>{const f=v=>g.money?brl(v):nf(v);return `<tr><td style="font-family:var(--sans)">${esc(g.name)}</td><td>${n0(g.peso)}%</td><td>${f(g.meta)}</td><td>${f(g.obj)}</td><td>${f(g.real)}</td><td><span class="pc ${pcCls(n0(g.pm))}">${n0(g.pm)}%</span></td><td>${n0(g.po)}%</td></tr>`}).join('')}</tbody></table></div></div>
+ <div class="msec grid2" style="margin-top:20px"><div><span class="cap">Cesta por categoria</span>${m.cats.map(c=>hbar(esc(c.name),c.meta?n0(c.v)/n0(c.meta):0,1,brl(c.v),`${c.name}: ${brl(c.v)} de ${brl(c.meta)}`)).join('')}</div>
+  <div><span class="cap">Cross-sell</span>${m.cross.map(x=>hbar(esc(x.name),x.obj?n0(x.real)/n0(x.obj):0,x.obj?Math.min(n0(x.meta)/n0(x.obj),1):1,`${n0(x.real)}/${n0(x.meta)}`,`${x.name}: ${n0(x.real)} de meta ${n0(x.meta)}`)).join('')}</div></div>
+ <div class="msec"><span class="cap">Índice Comercial</span><div class="icg">${m.ic.map(g=>`<div><div class="cap" style="margin-top:10px;display:flex;justify-content:space-between"><span>${esc(g.g)}</span><span class="mono">${n0(g.p)}%</span></div>${g.m.map(x=>`<div class="mrow" style="grid-template-columns:1fr 60px 58px"><span>${esc(x.l)}<br><span class="mut">meta ${n0(x.meta)}</span></span><span class="mono" style="text-align:right">${n0(x.v)}</span><span class="pill ${n0(x.v)>=n0(x.meta)?'ok':'no'}">${n0(x.v)>=n0(x.meta)?'OK':'−'+nf(n0(x.meta)-n0(x.v))}</span></div>`).join('')}</div>`).join('')}</div></div>
+ <div class="msec grid2" style="margin-top:20px"><div><span class="cap">NPS · ${n0(m.nps.p)+n0(m.nps.n)+n0(m.nps.d)} notas</span><div class="counts"><div><b>${n0(m.nps.p)}</b><em style="--c:${col(2)}">Prom.</em></div><div><b>${n0(m.nps.n)}</b><em style="--c:var(--mut)">Neutros</em></div><div><b>${n0(m.nps.d)}</b><em style="--c:${col(1)}">Detr.</em></div></div></div>
+  <div><span class="cap">Rotina e reuniões</span><div class="vbars" style="height:90px">${m.rot.map(r=>`<div title="${fmtD(r.d)}: ${n0(r.p)}%"><i style="height:${Math.max(n0(r.p),2)}%"></i><small>${esc(String(r.d).slice(8))}</small></div>`).join('')}</div><div class="mut" style="margin-top:8px">${n0(m.meetWeek)} reuniões na semana · ${n0(m.meet30)} em 30 dias úteis · meta ${n0(m.meetGoal)}/dia</div></div></div>
+ <div class="msec"><span class="cap">Captação diária · líquida ${brl(tv)}</span><div class="tbl"><table class="rank"><thead><tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Captação do dia</th></tr></thead><tbody>
+  ${m.days.slice().sort((a,b)=>String(a.data).localeCompare(String(b.data))).map(x=>`<tr><td>${x.data?fmtD(x.data):'—'}</td><td>${brl(x.ent)}</td><td>${brl(x.sai)}</td><td style="color:${n0(x.ent)-n0(x.sai)>=0?'var(--ok)':'var(--bad)'}">${brl(n0(x.ent)-n0(x.sai))}</td></tr>`).join('')||'<tr><td colspan="4" class="mut" style="font-family:var(--sans)">Nenhum dia lançado.</td></tr>'}</tbody></table></div></div>`;
+ $('ovEdit').classList.add('show');
+}
+async function loadTeam(files){
+ const ok=[],bad=[];
+ for(const f of files){
+  if(!/\.xlsx$/i.test(f.name)){bad.push(f.name+' (não é .xlsx)');continue}
+  try{const snap=snapshot(fromSheets(await readXlsx(await f.arrayBuffer())),f.name);S.team=(S.team||[]).filter(x=>x.key!==snap.key);S.team.push(snap);ok.push(snap.name)}
+  catch(err){bad.push(f.name+': '+err.message)}
+ }
+ save();renderLeader();
+ alert(`${ok.length} assessor(es) carregado(s)${ok.length?': '+ok.join(', '):''}.`+(bad.length?`\n\nNão carregados:\n${bad.join('\n')}`:''));
+}
+function teamSheets(){
+ const T=S.team||[],W=m=>m.name;
+ return [
+  ['Equipe Resumo',[['Assessor','Cargo','Escritório','Nota %','Nota objetivo %','MEREO','Alocado R$','NPS','Reuniões semana','Reuniões 30 dias','Rotina média 10d %','Arquivo','Carregado em'],...T.map(m=>[W(m),m.role,m.office,n0(m.score),n0(m.scoreO),n0(m.mereo),n0(m.alloc),npsCalc(m.nps),n0(m.meetWeek),n0(m.meet30),Math.round(avg(m.rot.map(r=>n0(r.p)))),m.file,m.loaded])]],
+  ['Equipe Metas',[['Assessor','Meta','Peso %','Meta valor','Objetivo','Realizado','% da meta','% do objetivo'],...T.flatMap(m=>m.goals.map(g=>[W(m),g.name,n0(g.peso),n0(g.meta),n0(g.obj),n0(g.real),n0(g.pm),n0(g.po)]))]],
+  ['Equipe Captação diária',[['Assessor','Data','Entrada R$','Saída R$','Captação do dia R$'],...T.flatMap(m=>m.days.map(x=>[W(m),x.data,n0(x.ent),n0(x.sai),n0(x.ent)-n0(x.sai)]))]],
+  ['Equipe Cesta',[['Assessor','Categoria','Meta R$','Alocado R$'],...T.flatMap(m=>m.cats.map(c=>[W(m),c.name,n0(c.meta),n0(c.v)]))]],
+  ['Equipe Cross-sell',[['Assessor','Item','Meta','Objetivo','Realizado'],...T.flatMap(m=>m.cross.map(x=>[W(m),x.name,n0(x.meta),n0(x.obj),n0(x.real)]))]],
+  ['Equipe NPS',[['Assessor','Promotores','Neutros','Detratores','NPS'],...T.map(m=>[W(m),n0(m.nps.p),n0(m.nps.n),n0(m.nps.d),npsCalc(m.nps)])]],
+  ['Equipe Índice Comercial',[['Assessor','Grupo','Micro meta','Meta','Objetivo','Realizado'],...T.flatMap(m=>m.ic.flatMap(g=>g.m.map(x=>[W(m),g.g,x.l,n0(x.meta),n0(x.obj),n0(x.v)])))]],
+  ['Equipe Rotina',[['Assessor','Data','% rotina'],...T.flatMap(m=>m.rot.map(r=>[W(m),r.d,n0(r.p)]))]]];
+}
+function applyAnim(id){$(id).querySelectorAll('.an').forEach((el,i)=>el.style.setProperty('--i',i))}
+
 // ---- navegação ----
 let lastTab='rotina';
 function showTab(tab){
@@ -979,7 +1095,7 @@ function showTab(tab){
  $$('section').forEach(s=>s.classList.toggle('on',s.id==='tab-'+tab));
  $('daySeg').style.display=tab==='rotina'?'':'none';
  Object.keys(shown).forEach(k=>delete shown[k]);
- if(tab==='rotina')renderRotina();if(tab==='metas')renderMetas();if(tab==='dash')renderDash();if(tab==='config')renderConfig();
+ if(tab==='rotina')renderRotina();if(tab==='metas')renderMetas();if(tab==='dash')renderDash();if(tab==='config')renderConfig();if(tab==='leader')renderLeader();
  scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -988,7 +1104,8 @@ const blkOf=()=>S.blocks.find(b=>b.id===openId);
 document.addEventListener('click',e=>{
  if(!e.target.closest('#tipPop,#tipBtn'))$('tipPop').classList.remove('show');
  if(!e.target.closest('#calPop,#calBtn'))$('calPop').classList.remove('show');
- const t=e.target.closest('button,[data-open],[data-tab],[data-goal],[data-icedit]');if(!t)return;const d=t.dataset;
+ const t=e.target.closest('button,[data-open],[data-tab],[data-goal],[data-icedit],[data-member]');if(!t)return;const d=t.dataset;
+ if(d.member&&t.tagName!=='BUTTON'){renderMember(d.member);return}
  if((d.goal||d.icedit!=null)&&!d.tab&&t.tagName!=='BUTTON'){if(e.target.closest('input,select,textarea'))return;if(d.goal)openEdit('goal',d.goal);else openEdit('ic',d.icedit);return}
  if(d.tab)showTab(d.tab);
  else if(d.d){wrec(viewDate).type=d.d;save();renderRotina()}
@@ -1019,6 +1136,10 @@ document.addEventListener('click',e=>{
  else if(d.icdel){const [gi,mi]=d.icdel.split('.').map(Number);S.icCfg[gi].m.splice(mi,1);afterCfg()}
  else if('catadd' in d){S.cats.push({id:uid(),name:'Nova categoria',prods:[],meta:0,obj:0});afterCfg()}
  else if(d.catdel){if(confirm('Remover esta categoria? As alocações dela continuam no total, mas sem categoria.')){S.cats=S.cats.filter(c=>c.id!==d.catdel);afterCfg()}}
+ else if('leadertoggle' in d){S.leader=!S.leader;save();renderProfile();if(!S.leader&&$('tab-leader').classList.contains('on'))showTab('config')}
+ else if('teamload' in d)$('teamIn').click();
+ else if('teamexp' in d){const a=document.createElement('a');a.href=URL.createObjectURL(xlsx(teamSheets()));a.download='private-desk-equipe.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+ else if(d.teamdel){if(confirm('Tirar este assessor do painel do líder?')){S.team=S.team.filter(x=>x.key!==d.teamdel);save();renderLeader()}}
  else if('cdadd' in d){const g=S.goals.find(x=>x.daily);const last=g.days.map(x=>x.data).filter(Boolean).sort().pop();const nx=last?new Date(last+'T12:00'):null;if(nx){do nx.setDate(nx.getDate()+1);while(nx.getDay()===0||nx.getDay()===6)}g.days.push({data:nx?iso(nx):todayISO(),ent:0,sai:0});afterCfg()}
  else if(d.cddel!=null){S.goals.find(x=>x.daily).days.splice(+d.cddel,1);afterCfg()}
  else if('xadd' in d){S.crossItems.push({id:uid(),name:'Novo item',meta:1,obj:1,real:0});afterCfg()}
@@ -1037,6 +1158,7 @@ $('themeBtn').onclick=()=>{S.theme=S.theme==='dark'?'light':'dark';save();render
 $('avaBtn').onclick=()=>showTab('config');
 $$('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeOv()}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeOv();$$('.pop').forEach(p=>p.classList.remove('show'))}});
+document.addEventListener('change',e=>{if(e.target.id==='teamIn'&&e.target.files.length){loadTeam([...e.target.files]);e.target.value=''}});
 $('notes').addEventListener('input',e=>{wrec(viewDate).notes=e.target.value;save()});
 $('meetGoal').addEventListener('input',e=>{S.meetGoal=Math.max(0,+e.target.value||0);save();renderRotina();renderTips()});
 $('tab-metas').addEventListener('change',e=>{const d=e.target.dataset,v=e.target.value;
@@ -1138,6 +1260,7 @@ function toSheets(){
   ['Alocações',[['Data','Código cliente','Produto','Status','Valor R$'],...S.alloc.map(a=>[a.data,a.cod,a.prod,a.status,+a.valor||0])]],
   ['NPS',[['Promotores','Neutros','Detratores'],[+S.nps.p||0,+S.nps.n||0,+S.nps.d||0]]],
   ['Índice Comercial',[['Grupo','Ícone do grupo','Chave','Micro meta','Meta','Objetivo','Realizado','Sugestão'],...S.icCfg.flatMap(g=>g.m.map(m=>[g.g,g.i,m.k,m.l,+m.meta||0,+m.obj||0,+S.ic[m.k]||0,m.s||'']))]],
+  ['Equipe (líder)',[['Chave','Dados (JSON)','Painel do líder ligado'],...(S.team||[]).map(m=>[m.key,JSON.stringify(Object.assign({},m,{photo:''})),S.leader?'sim':'não']),...(S.team&&S.team.length?[]:[['','',S.leader?'sim':'não']])]],
   ['Layout',[['Área','Ordem (IDs)'],...Object.keys(S.layout).map(k=>[k,L(S.layout[k])])]]];
 }
 function fromSheets(wb){
@@ -1161,6 +1284,7 @@ function fromSheets(wb){
  s.alloc=O('Alocações').map(r=>({data:xd(r['Data']),cod:String(r['Código cliente']??''),prod:String(r['Produto']||''),status:r['Status']==='Não'?'Não':'Sim',valor:+r['Valor R$']||0}));
  const np=O('NPS')[0];if(np)s.nps={p:+np['Promotores']||0,n:+np['Neutros']||0,d:+np['Detratores']||0};
  if(wb['Índice Comercial']){const grp=[];s.ic={};O('Índice Comercial').forEach(r=>{let g=grp.find(x=>x.g===String(r['Grupo']));if(!g)grp.push(g={g:String(r['Grupo']||'Grupo'),i:ICONS[r['Ícone do grupo']]?String(r['Ícone do grupo']):'chart',m:[]});const k=String(r['Chave']||uid());g.m.push({k,l:String(r['Micro meta']||'Micro meta'),meta:+r['Meta']||0,obj:+r['Objetivo']||0,s:String(r['Sugestão']||'')});s.ic[k]=+r['Realizado']||0});if(grp.length)s.icCfg=grp}
+ O('Equipe (líder)').forEach(r=>{if(r['Painel do líder ligado']==='sim')s.leader=true;if(!r['Dados (JSON)'])return;try{const m=JSON.parse(String(r['Dados (JSON)']));if(m&&m.key)(s.team=s.team||[]).push(m)}catch(e){}});
  O('Layout').forEach(r=>{const k=String(r['Área']);if(k in s.layout)s.layout[k]=dd(r['Ordem (IDs)'])});
  return sanitize(s);
 }
@@ -1186,7 +1310,8 @@ function renderImport(){
  const z=$('dropZone');['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('over')}));['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
  z.addEventListener('drop',e=>importFile(e.dataTransfer.files[0]));$('xlsxIn').onchange=e=>importFile(e.target.files[0]);
 }
-$('btnExp').onclick=()=>dlXlsx('private-desk-backup-'+todayISO()+'.xlsx');
+const slug=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'assessor';
+$('btnExp').onclick=()=>dlXlsx('private-desk-'+slug(S.name)+'.xlsx');
 $('btnImp').onclick=()=>{editKind=null;renderImport();$('ovEdit').classList.add('show')};
 $('eBody').addEventListener('click',e=>{if(e.target.closest('[data-dlmodel]'))dlXlsx('private-desk-modelo.xlsx');if(e.target.closest('[data-pickxlsx]'))$('xlsxIn').click()});
 $('btnReset').onclick=()=>{if(confirm('Apagar todos os dados e voltar ao padrão? Exporte um backup antes.')){S=DEF();save();renderAll()}};
