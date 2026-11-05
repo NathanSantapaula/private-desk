@@ -367,6 +367,17 @@ section.on .an{animation:rise .9s var(--ease) both;animation-delay:calc(var(--i,
         <button class="btn p" id="nowOpen" style="margin-top:16px;width:100%">Abrir checklist do bloco <svg class="ico" viewBox="0 0 24 24" data-i="arrow"></svg></button>
       </div>
       <div class="card an" style="height:auto">
+        <div class="h"><span class="md"><svg class="ico" viewBox="0 0 24 24" data-i="users"></svg></span>Reuniões do dia<span class="tag" id="meetTag" style="margin-left:auto"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+          <button class="icon-btn" data-meet="-1" title="Tirar uma reunião"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+          <span class="num" style="font-size:56px;line-height:1;min-width:64px;text-align:center" data-num="meet">0</span>
+          <button class="icon-btn" data-meet="1" title="Somar uma reunião"><svg class="ico" viewBox="0 0 24 24" data-i="plus"></svg></button>
+          <label class="mut" style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">Meta por dia<input class="f mono" type="number" min="0" id="meetGoal" style="width:70px;padding:6px 8px;text-align:right"></label>
+        </div>
+        <div class="bar" style="margin-top:14px"><i id="meetBar"></i></div>
+        <div class="mut" id="meetInfo" style="margin-top:8px"></div>
+      </div>
+      <div class="card an" style="height:auto">
         <div class="h"><span class="md"><svg class="ico" viewBox="0 0 24 24" data-i="note"></svg></span>Anotações do dia</div>
         <textarea id="notes" style="margin-top:14px" placeholder="Follows, nomes de clientes, lembretes…"></textarea>
       </div>
@@ -528,6 +539,7 @@ const icDef=()=>[
 const catsDef=()=>Object.entries(PRODS0).map(([n,p])=>({id:uid(),name:n,prods:p.slice(),meta:CAT_META[n][0],obj:CAT_META[n][1]}));
 const crossDef=()=>[['Seguros',3,5],['Consórcio',1,2],['Cartões',3,5],['Portabilidade de Salário',3,5]].map(([n,m,o])=>({id:uid(),name:n,meta:m,obj:o,real:0}));
 const DEF=()=>({v:3,name:'Assessor',role:'Assessor de Investimentos',office:'XP Investimentos',photo:'',theme:'dark',brand:'xp',log:{},
+ meetGoal:3,
  dayTypes:[{id:'A',name:'Tipo A',days:[1,3,4]},{id:'B',name:'Tipo B',days:[2,5]}],
  blocks:[
   mkBlk('op','08:00','09:00','Operacional Diário',['A','B'],'check',['Alinhar agenda (Outlook/Teams)','Revisar Follows','Revisar Pipes','Jornada de conversão','WhatsApp','E-mails / Teams'],[]),
@@ -588,7 +600,8 @@ function sanitize(s){
  s.icCfg.forEach(g=>{if(!ICONS[g.i])g.i='chart';g.m.forEach(m=>{const old=m.k;fix(m,'k');if(old!==m.k&&s.ic[old]!=null)s.ic[m.k]=s.ic[old];num(m,'meta','obj')})});
  Object.keys(s.ic).forEach(k=>okId(k)?s.ic[k]=+s.ic[k]||0:delete s.ic[k]);
  num(s.nps,'p','n','d');s.alloc.forEach(a=>{num(a,'valor');if(!okDate(a.data))a.data='';a.status=a.status==='Não'?'Não':'Sim'});
- Object.keys(s.log).forEach(d=>{const r=s.log[d];if(!okDate(d)||!r){delete s.log[d];return}if(!tids.includes(r.type))r.type=tids[0];r.done=Object.fromEntries(Object.keys(r.done||{}).filter(okId).map(k=>[k,1]));if(r.legacy!=null)r.legacy=+r.legacy||0});
+ s.meetGoal=Math.max(0,+s.meetGoal||0);
+ Object.keys(s.log).forEach(d=>{const r=s.log[d];if(!okDate(d)||!r){delete s.log[d];return}if(r.meetings!=null)r.meetings=Math.max(0,Math.round(+r.meetings||0));if(!tids.includes(r.type))r.type=tids[0];r.done=Object.fromEntries(Object.keys(r.done||{}).filter(okId).map(k=>[k,1]));if(r.legacy!=null)r.legacy=+r.legacy||0});
  Object.keys(s.layout).forEach(k=>s.layout[k]=(s.layout[k]||[]).filter(x=>/^[A-Za-z0-9_:-]{1,44}$/.test(x)));
  return s;
 }
@@ -752,6 +765,10 @@ function renderRotina(){
  $('nowHier').innerHTML=nh.filter(x=>r.type==='B'||!isB(x)).slice(0,7).map(x=>`<li>${esc(x)}</li>`).join('')||'<li>Tudo feito por aqui</li>';
  $('nowOpen').dataset.open=focus?focus.id:'';
  if(document.activeElement!==$('notes'))$('notes').value=r.notes||'';
+ const mt=+r.meetings||0,mg=S.meetGoal,mon=(()=>{const x=new Date(viewDate+'T12:00');x.setDate(x.getDate()-(x.getDay()+6)%7);return iso(x)})(),wk=weekdays(5,viewDate).filter(d=>d>=mon).reduce((a,d)=>a+(+rec(d).meetings||0),0);
+ count('meet',mt);$('meetBar').style.width=(mg?Math.min(mt/mg,1)*100:0)+'%';$('meetTag').textContent=mg?(mt>=mg?'meta batida':`faltam ${mg-mt}`):'sem meta';
+ $('meetInfo').textContent=`${wk} na semana · ${weekdays(30,viewDate).reduce((a,d)=>a+(+rec(d).meetings||0),0)} nos últimos 30 dias úteis`;
+ if(document.activeElement!==$('meetGoal'))$('meetGoal').value=mg;
  if(openId)renderModal();
 }
 function renderCal(){
@@ -928,6 +945,7 @@ function tips(){
  const pri=S.goals.map(g=>({g,imp:(+g.peso||0)*(1-Math.min(ratio(g),1))})).filter(x=>x.imp>0).sort((a,b)=>b.imp-a.imp).slice(0,3)
   .map(({g})=>`<b style="font-weight:500">${esc(g.name)}</b> está em ${Math.round(ratio(g)*100)}% da meta. Faltam ${fmtG(g,gap(g))} · peso ${g.peso}% na nota.`);
  const t=todayISO(),r=rec(t),pend=vis(r.type).filter(b=>b.kind!=='pausa'&&blkStat(b,r).pc<100);
+ const mt=+r.meetings||0;secs.push({t:'Reuniões de hoje',p:S.meetGoal?Math.round(Math.min(mt/S.meetGoal,1)*100):100,items:S.meetGoal&&mt<S.meetGoal?[`${mt} de ${S.meetGoal} reuniões feitas hoje. Faltam ${S.meetGoal-mt}.`]:[]});
  secs.push({t:'Rotina de hoje',p:dayPct(t),items:pend.slice(0,4).map(b=>{const x=blkStat(b,r);return `${b.start} · ${b.title}: ${x.it.length-x.d} tarefas pendentes`})});
  S.goals.forEach(g=>{
   if(g.auto==='cesta'){const m=meo();secs.push({t:g.name,p:Math.round(ratio(g)*100),items:[...(ratio(g)<1?[`Faltam ${brl(gap(g))} alocados para a meta.`]:[]),...S.cats.filter(c=>c.meta>m.by[c.id]).sort((a,b)=>(b.meta-m.by[b.id])-(a.meta-m.by[a.id])).map(c=>`${c.name}: faltam ${brl(c.meta-m.by[c.id])}`)]})}
@@ -973,6 +991,7 @@ document.addEventListener('click',e=>{
  if((d.goal||d.icedit!=null)&&!d.tab&&t.tagName!=='BUTTON'){if(e.target.closest('input,select,textarea'))return;if(d.goal)openEdit('goal',d.goal);else openEdit('ic',d.icedit);return}
  if(d.tab)showTab(d.tab);
  else if(d.d){wrec(viewDate).type=d.d;save();renderRotina()}
+ else if(d.meet){const r=wrec(viewDate);r.meetings=Math.max(0,(+r.meetings||0)+ +d.meet);save();renderRotina();renderTips()}
  else if(d.goday){viewDate=d.goday;renderRotina()}
  else if(d.day){viewDate=d.day;$('calPop').classList.remove('show');renderRotina()}
  else if(d.calnav){calM=new Date(calM.getFullYear(),calM.getMonth()+ +d.calnav,1);renderCal()}
@@ -1018,6 +1037,7 @@ $('avaBtn').onclick=()=>showTab('config');
 $$('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeOv()}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeOv();$$('.pop').forEach(p=>p.classList.remove('show'))}});
 $('notes').addEventListener('input',e=>{wrec(viewDate).notes=e.target.value;save()});
+$('meetGoal').addEventListener('input',e=>{S.meetGoal=Math.max(0,+e.target.value||0);save();renderRotina();renderTips()});
 $('tab-metas').addEventListener('change',e=>{const d=e.target.dataset,v=e.target.value;
  if(d.g){S.goals.find(g=>g.id===d.g).real=+v}
  else if(d.a!=null)S.alloc[d.a][d.f]=d.f==='valor'?+v:v;
@@ -1104,12 +1124,12 @@ const xt=v=>typeof v==='number'?(m=>String(Math.floor(m/60)%24).padStart(2,'0')+
 function toSheets(){
  const ph=S.photo||'',parts=[];for(let i=0;i<ph.length;i+=30000)parts.push(ph.slice(i,i+30000));
  return [
-  ['Perfil',[['Campo','Valor'],['Nome',S.name],['Cargo',S.role],['Escritório',S.office],['Marca',S.brand],['Tema',S.theme],...parts.map((c,i)=>['Foto parte '+(i+1),c])]],
+  ['Perfil',[['Campo','Valor'],['Nome',S.name],['Cargo',S.role],['Escritório',S.office],['Marca',S.brand],['Tema',S.theme],['Meta reuniões/dia',+S.meetGoal||0],...parts.map((c,i)=>['Foto parte '+(i+1),c])]],
   ['Tipos de agenda',[['ID','Nome','Dias'],...S.dayTypes.map(t=>[t.id,t.name,L(t.days.map(w=>WDAYS[w]))])]],
   ['Blocos',[['ID','Ordem','Nome','Ícone','Início','Fim','Tipos de agenda','Formato','Etiqueta','Nota'],...S.blocks.map((b,i)=>[b.id,i+1,b.title,b.icon,b.start,b.end,L(b.types),b.kind,b.tag,b.note])]],
   ['Itens checklist',[['Bloco ID','Item ID','Texto'],...S.blocks.flatMap(b=>b.items.map(it=>[b.id,it.id,it.t]))]],
   ['Hierarquia',[['Bloco ID','Ordem','Texto'],...S.blocks.flatMap(b=>b.hier.map((h,i)=>[b.id,i+1,h]))]],
-  ['Histórico',[['Data','Tipo de agenda','Itens concluídos (IDs)','Anotações','% legado'],...Object.keys(S.log).sort().map(d=>{const r=S.log[d];return [d,r.type,L(Object.keys(r.done||{})),r.notes||'',r.legacy??'']})]],
+  ['Histórico',[['Data','Tipo de agenda','Itens concluídos (IDs)','Anotações','% legado','Reuniões'],...Object.keys(S.log).sort().map(d=>{const r=S.log[d];return [d,r.type,L(Object.keys(r.done||{})),r.notes||'',r.legacy??'',+r.meetings||0]})]],
   ['Captação diária',[['Meta ID','Data','Entrada R$','Saída R$','Captação do dia R$'],...S.goals.filter(g=>g.daily).flatMap(g=>g.days.map(x=>[g.id,x.data,+x.ent||0,+x.sai||0,(+x.ent||0)-(+x.sai||0)]))]],
   ['Metas',[['ID','Nome','Peso %','Meta','Objetivo','Realizado','Cálculo'],...S.goals.map(g=>[g.id,g.name,+g.peso||0,+g.meta||0,+g.obj||0,g.auto?'':+g.real||0,g.auto||'manual'])]],
   ['Cesta categorias',[['ID','Categoria','Meta R$','Objetivo R$','Produtos'],...S.cats.map(c=>[c.id,c.name,+c.meta||0,+c.obj||0,L(c.prods)])]],
@@ -1123,7 +1143,7 @@ function fromSheets(wb){
  ['Perfil','Blocos','Metas'].forEach(n=>{if(!wb[n])throw new Error(`a aba "${n}" não foi encontrada. Baixe o modelo e mantenha os nomes das abas.`)});
  const O=n=>{const r=wb[n]||[],h=(r[0]||[]).map(x=>String(x??'').trim());return r.slice(1).filter(x=>x&&x.some(v=>v!==''&&v!=null)).map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]??''])))};
  const d=DEF(),s=DEF(),pf={};O('Perfil').forEach(r=>pf[String(r['Campo'])]=r['Valor']);
- s.name=String(pf['Nome']||d.name);s.role=String(pf['Cargo']||d.role);s.office=String(pf['Escritório']||d.office);
+ s.name=String(pf['Nome']||d.name);s.role=String(pf['Cargo']||d.role);s.office=String(pf['Escritório']||d.office);if(pf['Meta reuniões/dia']!==undefined)s.meetGoal=+pf['Meta reuniões/dia']||0;
  s.brand=pf['Marca']==='rico'?'rico':'xp';s.theme=pf['Tema']==='light'?'light':'dark';
  s.photo=Object.keys(pf).filter(k=>/^Foto parte/.test(k)).sort((a,b)=>parseInt(a.slice(11))-parseInt(b.slice(11))).map(k=>String(pf[k])).join('');
  const dt=O('Tipos de agenda');if(dt.length)s.dayTypes=dt.map(r=>({id:String(r['ID']||'t'+uid()),name:String(r['Nome']||'Tipo'),days:dd(r['Dias']).map(x=>WDAYS.findIndex(w=>w.toLowerCase()===x.toLowerCase().slice(0,3))).filter(w=>w>=0)}));
@@ -1131,7 +1151,7 @@ function fromSheets(wb){
  s.blocks=O('Blocos').sort((a,b)=>(+a['Ordem']||0)-(+b['Ordem']||0)).map(r=>{const id=String(r['ID']||'b'+uid()),ty=dd(r['Tipos de agenda']).filter(x=>tids.includes(x));
   return {id,title:String(r['Nome']||'Bloco'),icon:ICONS[r['Ícone']]?String(r['Ícone']):'note',start:xt(r['Início'])||'08:00',end:xt(r['Fim'])||'09:00',types:ty.length?ty:[tids[0]],kind:['check','hier','pausa'].includes(r['Formato'])?r['Formato']:'check',tag:String(r['Etiqueta']||''),note:String(r['Nota']||''),
    items:its.filter(i=>String(i['Bloco ID'])===id).map(i=>({id:String(i['Item ID']||uid()),t:String(i['Texto'])})),hier:hs.filter(h=>String(h['Bloco ID'])===id).sort((a,b)=>(+a['Ordem']||0)-(+b['Ordem']||0)).map(h=>String(h['Texto']))}});
- s.log={};O('Histórico').forEach(r=>{const k=xd(r['Data']);if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return;const done={};dd(r['Itens concluídos (IDs)']).forEach(x=>done[x]=1);s.log[k]={type:String(r['Tipo de agenda']||tids[0]),done,notes:String(r['Anotações']||'')};if(r['% legado']!==''&&r['% legado']!=null)s.log[k].legacy=+r['% legado']});
+ s.log={};O('Histórico').forEach(r=>{const k=xd(r['Data']);if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return;const done={};dd(r['Itens concluídos (IDs)']).forEach(x=>done[x]=1);s.log[k]={type:String(r['Tipo de agenda']||tids[0]),done,notes:String(r['Anotações']||'')};if(r['% legado']!==''&&r['% legado']!=null)s.log[k].legacy=+r['% legado'];if(+r['Reuniões'])s.log[k].meetings=+r['Reuniões']});
  const gs=O('Metas').map(r=>{const auto=['cesta','cross','nps','ic'].includes(r['Cálculo'])?r['Cálculo']:null,g={id:String(r['ID']||uid()),name:String(r['Nome']||'Meta'),peso:+r['Peso %']||0,meta:+r['Meta']||0,obj:+r['Objetivo']||0};if(auto)g.auto=auto;else g.real=+r['Realizado']||0;return g});
  if(gs.length)s.goals=gs;
  O('Captação diária').forEach(r=>{const g=s.goals.find(x=>x.id===String(r['Meta ID']))||s.goals.find(x=>x.id==='cl');if(!g)return;g.daily=true;(g.days=g.days||[]).push({data:xd(r['Data']),ent:+r['Entrada R$']||0,sai:+r['Saída R$']||0})});
