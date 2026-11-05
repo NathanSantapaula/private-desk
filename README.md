@@ -24,3 +24,19 @@ Os dados ficam salvos no próprio navegador (`localStorage`). Para levar para ou
 3. **Exportar consolidado (Power BI)** gera `private-desk-equipe.xlsx` com abas planas por assessor. No Power BI: Obter dados → SharePoint Online → esse arquivo.
 
 O controle de acesso fica na pasta do SharePoint: só o líder deve ter leitura de todos os arquivos.
+
+## App no Microsoft Teams
+
+O pacote `teams/private-desk-teams.zip` instala o Private Desk como app na barra lateral do Teams. Ele abre este mesmo site, com o mesmo design.
+
+1. No Teams: **Apps → Gerenciar seus apps → Carregar um app**.
+2. Escolha **Carregar um app personalizado** e selecione o `.zip`. Se a opção não aparecer, a empresa bloqueia apps personalizados: use **Enviar um app para sua organização** e a TI aprova.
+3. Abra o app e fixe na barra lateral (botão direito → Fixar).
+
+## Privacidade
+
+O Private Desk não envia dados para servidores. Tudo que o assessor preenche fica salvo no próprio navegador (ou no Teams) dele, e só sai dali quando ele exporta o backup em Excel.
+
+## Termos de uso
+
+Ferramenta interna de apoio à gestão diária, fornecida como está. XP e Rico são marcas dos seus respectivos donos.

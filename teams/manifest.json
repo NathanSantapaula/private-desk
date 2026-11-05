@@ -1,0 +1,39 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "6124b9bb-6ac9-4647-bcd5-1431fee92b09",
+  "developer": {
+    "name": "Nathan Santapaula",
+    "websiteUrl": "https://nathansantapaula.github.io/private-desk/",
+    "privacyUrl": "https://github.com/NathanSantapaula/private-desk#privacidade",
+    "termsOfUseUrl": "https://github.com/NathanSantapaula/private-desk#termos-de-uso"
+  },
+  "name": {
+    "short": "Private Desk",
+    "full": "Private Desk - Gestão diária e metas"
+  },
+  "description": {
+    "short": "Rotina diária, metas e dashboard do assessor de investimentos.",
+    "full": "Painel do assessor XP/Rico: rotina diária com checklists e prioridades, metas e ponderações (captação, cesta, cross-sell, NPS, Índice Comercial, MEREO), visão dashboard, pontos de melhoria e painel do líder."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#0B0B0B",
+  "staticTabs": [
+    {
+      "entityId": "privatedesk",
+      "name": "Private Desk",
+      "contentUrl": "https://nathansantapaula.github.io/private-desk/",
+      "websiteUrl": "https://nathansantapaula.github.io/private-desk/",
+      "scopes": [
+        "personal"
+      ]
+    }
+  ],
+  "validDomains": [
+    "nathansantapaula.github.io"
+  ]
+}
